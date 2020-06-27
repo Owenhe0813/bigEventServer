@@ -117,7 +117,7 @@ router.get('/cates/:id', async(req, res) => {
         res.send({
             status: 0,
             message: "获取文章成功！",
-            data: backdata
+            data: backdata[0]
         });
     } catch (error) {
         // 错误处理

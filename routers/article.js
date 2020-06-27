@@ -4,7 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const { log } = require('console');
 const db = require('../db');
-const filePath = '/uploads';
+const filePath = 'uploads/';
 const upload = multer({ dest: filePath });
 //事件处理函数
 const moment = require('moment');
@@ -17,11 +17,11 @@ const { title } = require('process');
 
 
 
-// 发布新文章
+// 发布新文章....................................................................
 router.post('/add', upload.single('cover_img'), async(req, res) => {
     try {
-        console.log(req.body);
-        console.log(req.file);
+        console.log('条件', req.body);
+        console.log('文档', req.file);
         //1.数据处理
         // 1.1 结构需要的req.body的数据
         let { title, cate_id, content, state } = req.body;
@@ -32,7 +32,7 @@ router.post('/add', upload.single('cover_img'), async(req, res) => {
                 content,
                 state,
                 pub_date: moment(new Date()).format('YYYY-MM-DD HH-mm-ss'), //需要处理时间数据
-                cover_img: req.file.path,
+                cover_img: '\\' + req.file.path,
                 author_id: req.user.id
             }
             //2.查询字符串
@@ -58,44 +58,35 @@ router.post('/add', upload.single('cover_img'), async(req, res) => {
     }
 });
 
-// 获取文章的列表数据
+// 获取文章的列表数据.....................................................
 router.get('/list', async(req, res) => {
     try {
         //1.处理搜索的索引位置
         const startIndex = (req.query.pagenum - 1) * req.query.pagesize;
-        const endIndex = +req.query.pagesize + startIndex;
-        console.log(startIndex, endIndex);
+        const endIndex = +req.query.pagesize;
 
         //2.处理查询字符串
-        const queryStrArticles = `select Id,title,pub_date,cate_id,state from articles where cate_id${req.query.cate_id?'=?':' is not null'} and state${req.query.state?'=?':' is not null'} order by Id limit ?,?`;
-        const queryStrTotal = 'select count(*) as total from articles';
+        const queryStrArticles = `select articles.Id,title,pub_date,state,name cate_name from articles 
+        join categories on articles.cate_id=categories.Id 
+        where cate_id${req.query.cate_id?'=?':' is not null'} and state${req.query.state?'=?':' is not null'} and articles.isdelete=0 and author_id=${req.user.id} order by Id limit ?,?`;
+        const queryStrTotal = `select count(*) as total from articles where cate_id${req.query.cate_id?'=?':' is not null'} and state${req.query.state?'=?':' is not null'} and articles.isdelete=0`;
+        console.log(`author_id = ${ req.user.id }`);
+
         //处理arr配合查询字符串里有？的项目
         let queryArr = [req.query.cate_id, req.query.state, startIndex, endIndex].filter(item => {
             return item || item === 0;
         });
-        console.log(queryArr);
-
+        let queryArrTotal = [req.query.cate_id, req.query.state].filter(item => {
+            return item || item === 0;
+        });
         // queryArr = queryArr
         //3.搜索
         let backdataArticles = db(queryStrArticles, queryArr); //数据
-        let backdataTotal = db(queryStrTotal); //总数
+        let backdataTotal = db(queryStrTotal, queryArrTotal); //总数
         backdataArticles = await backdataArticles;
         backdataTotal = await backdataTotal;
-        //3.1处理cate-id和cate_name的对应关系，采用promiseall的方式
-        const cateNameArr = []; //promise
-        backdataArticles.forEach(item => {
-            // 根据item.cate_id来进行判断
-            const queryStr = 'select name from categories where Id =?'
-            cateNameArr.push(db(queryStr, item.cate_id));
-        });
-        let cateName = await Promise.all(cateNameArr); //最终的cateName数据
 
-        //处理响应数据的catename选项以及cate_id
-        backdataArticles.forEach((item, index) => {
-            item.cate_name = cateName[index][0].name;
-            delete item.cate_id;
-        });
-        //4.错误处理
+        // //4.错误处理
         //5.数据处理
         //6.响应
         res.send({
@@ -115,7 +106,7 @@ router.get('/list', async(req, res) => {
     }
 });
 
-// 根据 Id 删除文章数据
+// 根据 Id 删除文章数据........................................................
 router.get('/delete/:id', async(req, res) => {
     try {
         //查询字符串:自己只能刷新自己的文章
@@ -140,19 +131,17 @@ router.get('/delete/:id', async(req, res) => {
     }
 });
 
-// 根据 Id 获取文章详情
+// 根据 Id 获取文章详情...............................................
 router.get('/:id', async(req, res) => {
     try {
         //查询字符串
         const querySelector = 'select * from articles where Id = ?';
         // 查询
-        let backdata = await db(querySelector, req.user.id);
+        let backdata = await db(querySelector, req.params.id);
         // 错误判断
-        console.log(backdata);
-
         if (!backdata.length) throw new Error('未找到相关条目，请重新刷新页面');
-
         console.log(backdata);
+
         // 发送响应
         res.send({
             "status": 0,
@@ -169,7 +158,7 @@ router.get('/:id', async(req, res) => {
     }
 });
 
-// 根据 Id 更新文章信息
+// 根据 Id 更新文章信息..............................................................
 router.post('/edit', upload.single('cover_img'), async(req, res) => {
     try {
         //1.获取文章数据
@@ -177,7 +166,7 @@ router.post('/edit', upload.single('cover_img'), async(req, res) => {
         const { title, cate_id, content, state, Id } = req.body;
         console.log(req.file);
         console.log(req.body);
-        const cover_img = req.file && req.file.path;
+        const cover_img = req.file && '\\' + req.file.path;
         const pub_date = moment(new Date()).format('YYYY-MM-DD HH-mm-ss');
         const author_id = req.user.id;
         //3.查询字符串

@@ -2,7 +2,17 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 
+// 跨域
+// app.use((req, res, next) => {
+//     res.setHeader('Access-Control-Allow-Origin', '*');
+//     next();
+// });
+//开放静态资源
 
+
+
+app.use(cors());
+app.use('/uploads/', express.static('./uploads/'));
 
 //加载路由
 const userRouter = require('./routers/user');
@@ -14,17 +24,11 @@ const secret = 'hyz';
 
 
 
-// 跨域
-// app.use((req, res, next) => {
-//     res.setHeader('Access-Control-Allow-Origin', '*');
-//     next();
-// });
-app.use(cors());
 
 // 编码
 app.use(express.urlencoded({ extended: false }));
 //token解码
-app.use(expJWT({ secret }).unless({ path: /^\/api/ }));
+app.use(expJWT({ secret }).unless({ path: [/^\/api/, /^\/uploads/] }));
 app.use('/my', (err, req, res, next) => {
 
     if (err.name === 'UnauthorizedError') {
